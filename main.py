@@ -1,6 +1,10 @@
 from fastapi import FastAPI
+from routers import auth, photos
 
 app = FastAPI()
+
+app.include_router(auth.router)
+app.include_router(photos.router)
 
 
 from services.calculator import CalculatorService
