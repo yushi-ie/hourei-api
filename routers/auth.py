@@ -3,8 +3,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 from config import settings
+from db import get_db
+import models
 from schemas.auth import Token, User
 from services.auth import (
     create_access_token,
@@ -15,7 +19,49 @@ from services.auth import (
     get_password_hash,
 )
 
-router = APIRouter()
+router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+class UserCreate(BaseModel):
+    username: str
+    password: str
+
+
+class UserOut(BaseModel):
+    id: int
+    username: str
+
+    class Config:
+        orm_mode = True
+
+
+def get_user_by_username(db: Session, username: str) -> models.User | None:
+    return db.query(models.User).filter(models.User.username == username).first()
+
+
+@router.post("/register", response_model=UserOut)
+def register(user_in: UserCreate, db: Session = Depends(get_db)):
+    # すでに同じユーザー名が登録されていないかチェック
+    user = get_user_by_username(db, user_in.username)
+    if user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username already registered",
+        )
+
+    # パスワードをハッシュ化
+    hashed_password = get_password_hash(user_in.password)
+
+    # 新しいユーザーを作成してDBに保存
+    new_user = models.User(
+        username=user_in.username,
+        hashed_password=hashed_password,
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    return new_user
 
 
 @router.post("/token", response_model=Token)
