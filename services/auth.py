@@ -10,7 +10,7 @@ from config import settings
 from schemas.auth import TokenData, User, UserInDB
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
 # Fake DB
 fake_users_db = {
