@@ -1,24 +1,20 @@
-from datetime import datetime, timedelta
-from typing import Annotated
+import os
+from uuid import uuid4
+import boto3
+from dotenv import load_dotenv
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 
-from jose import JWTError, jwt
+load_dotenv()
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel
-from sqlalchemy.orm import Session
+# S3 Setup
+S3_BUCKET_NAME = settings.S3_BUCKET_NAME
+if not S3_BUCKET_NAME:
+    # Fallback to env var if not in settings, though settings should handle it
+    S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
+    if not S3_BUCKET_NAME:
+         raise RuntimeError("S3_BUCKET_NAME is not set in .env or config")
 
-from config import settings
-from db import get_db
-import models
-from schemas.auth import Token, User
-from services.auth import (
-    create_access_token,
-    get_current_active_user,
-    get_password_hash,
-    verify_password,
-)
-
+s3_client = boto3.client("s3")
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -91,6 +87,40 @@ def read_users_me(
     return {
         "id": current_user.id,
         "username": current_user.username,
+    }
+
+@router.post("/users/me/photos")
+async def upload_my_photo(
+    file: UploadFile = File(...),
+    current_user: models.User = Depends(get_current_user),
+):
+    if file.content_type is None or not file.content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="画像ファイルをアップロードしてください。",
+        )
+
+    # S3 に保存するキー（パス）を作成
+    ext = os.path.splitext(file.filename)[1] or ""
+    key = f"users/{current_user.id}/{uuid4().hex}{ext}"
+
+    # ファイル内容を読み込んで S3 にアップロード
+    content = await file.read()
+    s3_client.put_object(
+        Bucket=S3_BUCKET_NAME,
+        Key=key,
+        Body=content,
+        ContentType=file.content_type,
+    )
+
+    # 簡易的な公開URL（バケットをそのまま公開にはしていない前提）
+    url = f"https://{S3_BUCKET_NAME}.s3.amazonaws.com/{key}"
+
+    return {
+        "key": key,
+        "url": url,
+        "filename": file.filename,
+        "content_type": file.content_type,
     }
 
 @router.post("/users", response_model=User)
