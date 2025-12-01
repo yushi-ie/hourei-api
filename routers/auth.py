@@ -3,8 +3,27 @@ from uuid import uuid4
 import boto3
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+from typing import Annotated
+
+from fastapi.security import OAuth2PasswordRequestForm
+
+from db import get_db
+import models
+from services.auth import (
+    create_access_token,
+    fake_users_db,
+    get_current_active_user,
+    get_current_user,
+    get_password_hash,
+    verify_password,
+)
+from schemas.auth import User
 
 load_dotenv()
+
+from config import settings
 
 # S3 Setup
 S3_BUCKET_NAME = settings.S3_BUCKET_NAME
