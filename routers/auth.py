@@ -13,27 +13,11 @@ from db import get_db
 import models
 from schemas.auth import Token, User
 from services.auth import (
-    fake_users_db,
+    create_access_token,
     get_current_active_user,
-    get_user,
-    verify_password,
     get_password_hash,
+    verify_password,
 )
-
-SECRET_KEY = "あなたのSECRET_KEY"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-
-
-def create_access_token(data: dict, expires_delta: timedelta | None = None):
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -100,11 +84,14 @@ def login_for_access_token(
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-@router.get("/users/me", response_model=User)
-async def read_users_me(
-    current_user: Annotated[User, Depends(get_current_active_user)],
-) -> User:
-    return current_user
+@router.get("/users/me")
+def read_users_me(
+    current_user: Annotated[models.User, Depends(get_current_active_user)],
+):
+    return {
+        "id": current_user.id,
+        "username": current_user.username,
+    }
 
 @router.post("/users", response_model=User)
 async def create_user(user: User, password: str):

@@ -1,5 +1,5 @@
 # models.py
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Boolean, Column, Integer, String
 from db import Base  # Changed from .db to db for absolute import in root
 
 class User(Base):
@@ -7,4 +7,7 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
+    email = Column(String, unique=True, index=True, nullable=True)
+    full_name = Column(String, nullable=True)
+    disabled = Column(Boolean, default=False)
     hashed_password = Column(String)
